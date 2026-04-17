@@ -1,0 +1,7 @@
+Flask
+python-dotenv
+crowdstrike-falconpy
+python-dateutil
+python-dotenv
+pdfkit
+weasyprint

@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ tenant_name }} | Falcon Sensor Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root{
+      --brand: {{ theme_primary }};   /* contoh default #ef4444 */
+      --brand-2: {{ theme_second }};  /* contoh default #f87171 */
+      --brand-dark: {{ theme_dark }}; /* contoh default #111827 */
+      --brand-text: {{ theme_text }}; /* contoh default #ffe4e6 */
+    }
+    body { background: #0b0b11; color: var(--brand-text); }
+
+    /* HERO */
+    .brand-hero{
+      background: linear-gradient(135deg, var(--brand-dark) 0%, #1b0f12 35%, var(--brand) 100%);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 18px;
+      padding: 18px 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    }
+    .brand-badge{
+      background: linear-gradient(90deg, var(--brand), var(--brand-2));
+      color: #2b0f12; font-weight: 700; border-radius: 999px; padding: 6px 12px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
+    }
+
+    /* Buttons (brand & neutral) */
+    .btn-brand{
+      background: linear-gradient(90deg, var(--brand), var(--brand-2));
+      color:#2b0f12; border:none; box-shadow: 0 6px 18px rgba(239,68,68,.35);
+    }
+    .btn-brand:hover{ filter: brightness(1.05); color:#1b0f12; }
+    .btn-outline-brand{
+      border: 1px solid var(--brand); color: var(--brand); background: transparent;
+    }
+    .btn-outline-brand:hover{ background: var(--brand); color:#2b0f12; }
+    .btn-mode-neutral { background:#1a1d26; color:#e5e7eb; border:1px solid rgba(255,255,255,.08); }
+    .btn-mode-neutral:hover { filter: brightness(1.05); }
+
+    /* Cards / Tables */
+    .card{ background: #121217; color: var(--brand-text); border: 1px solid rgba(255,255,255,.06); border-radius:16px; }
+    .table{ color:#f3f4f6; }
+    thead th { position: sticky; top: 0; background: #211317; z-index: 1; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .ghost { color:#cbd5e1; opacity:.7; }
+    .token-cell { white-space: nowrap; max-width: 520px; overflow: hidden; text-overflow: ellipsis; }
+    .copy-btn { margin-left: .5rem; }
+
+    /* Landing tiles */
+    .cta-tile {
+      display: block; width: 100%; padding: 3rem; border-radius: 14px;
+      text-align: center; box-shadow: 0 10px 26px rgba(0,0,0,.35);
+      transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .cta-tile:hover { transform: translateY(-2px); box-shadow: 0 16px 32px rgba(0,0,0,.45); }
+    .cta-brand {
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+      color: #2b0f12; border: 1px solid rgba(255,255,255,.12);
+    }
+    .cta-outline-brand {
+      background: #0f1016; color: var(--brand); border: 1px solid var(--brand);
+    }
+    .neutral {
+      background: radial-gradient(1200px 400px at 30% 0%, #171a22 0%, #10131a 60%, #0c0f15 100%);
+      color: #e5e7eb;
+    }
+    .tile-title { font-size: 1.5rem; font-weight: 700; margin-bottom: .25rem; }
+    .tile-sub   { opacity: .8; }
+  </style>
+</head>
+<body class="p-4">
+<div class="container-fluid">
+
+  <!-- HERO / HEADER -->
+  <div class="brand-hero mb-4">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div>
+        <div class="d-flex align-items-center gap-3">
+          <span class="brand-badge">Tenant: {{ tenant_name }}</span>
+          <span class="ghost small">Falcon Sensor Dashboard</span>
+        </div>
+        <h3 class="mt-2 mb-0">Operasional Endpoint & Maintenance</h3>
+      </div>
+      <div class="btn-group" role="group" aria-label="Switch mode">
+        <a class="btn btn-mode-neutral {{ 'active' if mode=='inactive' else '' }}"
+           href="{{ url_for('index', mode='inactive', os=os_filter, q=q) }}">Inactive & Tokens</a>
+        <a class="btn btn-brand {{ 'active' if mode=='live' else '' }}"
+           href="{{ url_for('index', mode='live', os=os_filter, q=q) }}">Live Uninstall</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerts -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-3">
+      {% for c, m in messages %}
+        <div class="alert alert-{{c}} alert-dismissible fade show" role="alert">
+          {{ m|safe }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% if mode == 'menu' %}
+    <div class="row">
+      <div class="col-12 col-lg-6 mb-3">
+        <a href="{{ url_for('index', mode='inactive') }}" class="cta-tile cta-outline-brand">
+          <div class="tile-title">Inactive Sensors + Maintenance Tokens</div>
+          <div class="tile-sub">Ringkasan inactivity, lihat & salin token, dan generate report</div>
+        </a>
+      </div>
+      <div class="col-12 col-lg-6 mb-3">
+        <!-- Netral gelap (bukan merah) agar balance -->
+        <a href="{{ url_for('index', mode='live') }}" class="cta-tile neutral">
+          <div class="tile-title" style="color:#ffd1d5;">Live Uninstall</div>
+          <div class="tile-sub">Host online (≤ {{ online_window }} menit) & uninstall langsung + log hasil</div>
+        </a>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if mode in ['inactive','live'] %}
+  <!-- Minimal Filters -->
+  <form class="row g-2 align-items-end mb-3" method="get">
+    <input type="hidden" name="mode" value="{{ mode }}">
+    <div class="col-sm-3">
+      <label class="form-label">OS</label>
+      <select class="form-select" name="os" id="viz-os">
+        <option value="Windows" {{ 'selected' if os_filter=='Windows' }}>Windows</option>
+        <option value="Linux"   {{ 'selected' if os_filter=='Linux' }}>Linux</option>
+        <option value="Mac"     {{ 'selected' if os_filter=='Mac' }}>macOS</option>
+        <option value="All"     {{ 'selected' if os_filter=='All' }}>All</option>
+      </select>
+    </div>
+    <div class="col-sm-5">
+      <label class="form-label">Search</label>
+      <input class="form-control" name="q" placeholder="Hostname / AID / Token" value="{{ q or '' }}">
+    </div>
+    <div class="col-sm-4 text-end">
+      <button class="btn btn-outline-brand mt-4">Apply</button>
+    </div>
+  </form>
+  {% endif %}
+
+  {% if mode == 'inactive' %}
+  <!-- ======== INACTIVE VIEW ======== -->
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-xl-7">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="card-title mb-0">Inactive Overview</h5>
+            <div class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small">Threshold (days)</label>
+              <input id="viz-threshold" type="number" class="form-control form-control-sm" style="width:90px" value="{{ threshold_days or 14 }}" min="1">
+              <button id="viz-refresh" class="btn btn-outline-brand btn-sm">Refresh</button>
+            </div>
+          </div>
+          <canvas id="chartInactiveBuckets" height="110"></canvas>
+          <div class="mt-3"><canvas id="chartPlatform" height="110"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel actions + PREVIEW LIST (tokens) -->
+    <div class="col-12 col-xl-5">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">Maintenance Tokens (Preview / Report)</h5>
+          <form class="row g-2 align-items-end" method="get">
+            <input type="hidden" name="mode" value="inactive">
+            <div class="col-sm-6">
+              <label class="form-label">Threshold (days)</label>
+              <input class="form-control" type="number" name="threshold_days" min="1" value="{{ threshold_days or 14 }}">
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Platform</label>
+              <select class="form-select" name="platform">
+                <option {% if platform_sel in ['All', None] %}selected{% endif %}>All</option>
+                <option {% if platform_sel=='Windows' %}selected{% endif %}>Windows</option>
+                <option {% if platform_sel=='Linux' %}selected{% endif %}>Linux</option>
+                <option value="Mac" {% if platform_sel=='Mac' %}selected{% endif %}>macOS</option>
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <button class="btn btn-outline-brand mt-2" name="show" value="1">Preview Tokens</button>
+            </div>
+            <div class="col-sm-6 text-end">
+              <!-- POST generate report -->
+              <button type="submit" formaction="{{ url_for('report_inactive') }}" formmethod="post" class="btn btn-brand mt-2"
+                onclick="this.closest('form').insertAdjacentHTML('beforeend', `<input type='hidden' name='make_artifacts' value='on'>`)">
+                Generate Report
+              </button>
+            </div>
+          </form>
+
+          {% if inactive_rows is defined %}
+          <hr>
+          <div class="table-responsive" style="max-height:45vh; overflow:auto;">
+            <table class="table table-hover table-striped align-middle">
+              <thead>
+                <tr>
+                  <th>device_id</th>
+                  <th>hostname</th>
+                  <th>last_seen</th>
+                  <th>days</th>
+                  <th>uninstall_token</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in inactive_rows %}
+                <tr>
+                  <td class="mono">{{ r.device_id }}</td>
+                  <td>{{ r.hostname }}</td>
+                  <td>{{ r.last_seen }}</td>
+                  <td>{{ r.days_since_last_seen }}</td>
+                  <td class="token-cell">
+                    <span>{{ r.uninstall_token }}</span>
+                    <button class="btn btn-sm btn-outline-brand copy-btn"
+                            onclick="navigator.clipboard.writeText('{{ r.uninstall_token }}')">Copy</button>
+                  </td>
+                </tr>
+                {% endfor %}
+                {% if not inactive_rows %}
+                <tr><td colspan="5" class="ghost">Tidak ada host tidak aktif sesuai filter.</td></tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+          <div class="ghost small mt-2">* Token sensitif — simpan dengan aman.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if mode == 'live' %}
+  <!-- ======== LIVE UNINSTALL VIEW ======== -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="card-title mb-0">Live Uninstall</h5>
+        <span class="ghost small">Tenant: {{ tenant_name }} · Online ≤ {{ online_window }} menit</span>
+      </div>
+      <div class="table-responsive" style="max-height:60vh; overflow:auto;">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>Hostname</th>
+              <th>AID</th>
+              <th>Platform</th>
+              <th>Last seen (UTC)</th>
+              <th style="width:140px;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in live %}
+            <tr>
+              <td>{{ h.hostname }}</td>
+              <td class="mono">{{ h.aid }}</td>
+              <td>{{ h.platform }}</td>
+              <td>{{ h.last_seen }}</td>
+              <td>
+                <form method="post" action="{{ url_for('uninstall', aid=h.aid) }}"
+                      onsubmit="return confirm('Uninstall {{ h.hostname }}?')">
+                  <input type="hidden" name="hostname" value="{{ h.hostname }}">
+                  <input type="hidden" name="platform" value="{{ h.platform }}">
+                  <button class="btn btn-sm btn-danger">Uninstall</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+            {% if not live %}
+            <tr><td colspan="5" class="ghost">No online hosts (≤ {{ online_window }} min).</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOG: succeed/failed -->
+  <div class="card">
+    <div class="card-body">
+      <h6 class="card-title mb-2">Uninstallation Log (last 30 days)</h6>
+      <div class="table-responsive" style="max-height:30vh; overflow:auto;">
+        <table class="table table-sm table-striped">
+          <thead>
+            <tr>
+              <th>Time (UTC)</th>
+              <th>Hostname</th>
+              <th>AID</th>
+              <th>Platform</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in uninstall_logs %}
+            <tr>
+              <td class="small">{{ e.ts }}</td>
+              <td class="small">{{ e.hostname }}</td>
+              <td class="small mono">{{ e.aid }}</td>
+              <td class="small">{{ e.platform }}</td>
+              <td class="small {% if e.ok %}text-success{% else %}text-danger{% endif %}">
+                {{ 'Success' if e.ok else 'Failed' }}
+              </td>
+            </tr>
+            {% endfor %}
+            {% if not uninstall_logs %}
+            <tr><td colspan="5" class="ghost">Belum ada log.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% if mode == 'inactive' %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+(async function(){
+  const osSel = document.getElementById('viz-os');
+  const thInput = document.getElementById('viz-threshold');
+  const btn1 = document.getElementById('viz-refresh');
+  let chart1, chart2;
+
+  async function loadMetrics(){
+    const params = new URLSearchParams({ os: osSel.value, threshold_days: thInput.value || 14 });
+    const res = await fetch(`/api/metrics?${params.toString()}`);
+    if(!res.ok) return;
+    return await res.json();
+  }
+  function renderCharts(data){
+    const c1 = document.getElementById('chartInactiveBuckets');
+    chart1?.destroy();
+    chart1 = new Chart(c1, {
+      type: 'bar',
+      data: { labels: data.inactive_buckets.labels, datasets: [{ label: 'Hosts', data: data.inactive_buckets.values }] },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+    const c2 = document.getElementById('chartPlatform');
+    chart2?.destroy();
+    const pLabels = Object.keys(data.platform_counts || {});
+    const pValues = pLabels.map(k => data.platform_counts[k]);
+    chart2 = new Chart(c2, {
+      type: 'bar',
+      data: { labels: pLabels, datasets: [{ label: 'Hosts by Platform', data: pValues }] },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+  }
+  async function refresh(){ const data = await loadMetrics(); if(data && !data.error){ renderCharts(data); } }
+  btn1.addEventListener('click', refresh);
+  osSel.addEventListener('change', refresh);
+  thInput.addEventListener('change', refresh);
+  refresh();
+})();
+</script>
+{% endif %}
+</body>
+</html>
